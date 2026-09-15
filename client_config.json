@@ -1,0 +1,78 @@
+{
+
+  "log": {
+      "loglevel": "warning",
+      "access": "/var/log/xray/access.log",
+      "error": "/var/log/xray/error.log"
+  },
+
+  "inbounds": [
+    {
+      "tag": "socks-in",
+      "listen": "127.0.0.1",
+      "port": 1080,
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      }
+    },
+    {
+      "tag": "tproxy-in",
+      "listen": "0.0.0.0",
+      "port": 12345,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "network": "tcp,udp",
+        "followRedirect": true
+      },
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "tproxy"
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "",            //enter server address
+            "port": 443,
+            "users": [
+              {
+                "id": "",           //enter id (use xray uuid on your server)
+                "flow": "xtls-rprx-vision",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "fingerprint": "chrome",
+          "serverName": "speed.cloudflare.com",
+          "publicKey": "",            // enter pub key (use xray x25519 on your server)
+          "shortId": "0123456789abcdef"
+        },
+        "sockopt": {
+          "mark": 255
+        }
+      }
+    }
+  ]
+}

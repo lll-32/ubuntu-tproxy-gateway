@@ -1,0 +1,11 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    {{ wan_interface }}:
+      dhcp4: true
+    {{ lan_interface }}:
+      dhcp4: false
+      addresses: 
+        - {{ lan_ip_cidr }}
+

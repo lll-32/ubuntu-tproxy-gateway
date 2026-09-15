@@ -1,0 +1,149 @@
+---
+- name: Configure Ubuntu Gateway
+  hosts: gateways
+  become: true
+  vars:
+    wan_interface: "enp0s3"
+    lan_interface: "enp0s8"
+    lan_ip: "192.168.1.1"
+    lan_ip_cidr: "192.168.1.1/24"
+    dhcp_range: "192.168.1.50,192.168.1.150,255.255.255.0,12h"
+    network_index: "10.0.2.0/24"
+    lan_index: "192.168.1.0/24"
+    xray_script_path: "/usr/local/bin/xray"
+    xray_conf_path: "/usr/local/etc/xray/config.json"
+
+  tasks:
+    - name: Install required packeges
+      ansible.builtin.apt:
+        name:
+          - netplan.io
+          - dnsmasq
+          - iptables
+          - iptables-persistent
+        state: present
+        update_cache: yes
+
+    - name: Install Xray
+      ansible.builtin.shell: bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+      args:
+        creates: /usr/local/bin/xray
+
+    - name: Deploy netplan configuration
+      ansible.builtin.template:
+        src: templates/01-netcfg.yml.j2
+        dest: /etc/netplan/00-installer-config.yaml
+        mode: '0600'
+      notify: Apply netplan
+
+    - name: Deploy dnsmasq config
+      ansible.builtin.template:
+        src: templates/dnsmasq-gateway.conf.j2
+        dest: /etc/dnsmasq.conf
+        mode: '0644'
+      notify: Restart dnsmasq
+
+    - name: Deploy xray
+      ansible.builtin.template:
+        src: config.json.j2
+        dest: "{{ xray_conf_path }}"
+      notify: Restart xray
+
+    - name: Configure IPtables forwarding in kernel
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: true
+        state: present
+        reload: true
+
+    - name: Configure IPtables NAT Masquerade 
+      ansible.builtin.iptables:
+        table: nat
+        chain: POSTROUTING
+        out_interface: "{{ wan_interface }}"
+        jump: MASQUERADE
+
+    - name: Allow forwarding from LAN to WAN
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ lan_interface }}"
+        out_interface: "{{ wan_interface }}"
+        jump: ACCEPT
+
+    - name: Allow forwarding fot Established and Related connection state
+      ansible.builtin.iptables:
+        chain: FORWARD
+        in_interface: "{{ wan_interface }}"
+        out_interface: "{{ lan_interface }}"
+        ctstate:
+          - ESTABLISHED
+          - RELATED
+        jump: ACCEPT
+
+    - name: Create new mangle table
+      ansible.builtin.iptables:
+        table: mangle
+        chain: XRAY
+        chain_management: true
+        state: present
+
+    - name: Create new ip rule fwmark 1 table 100
+      ansible.builtin.command: "ip rule add fwmark 1 table 100"
+      register: router_cmd
+      failed_when: false
+
+    - name: Create route rule
+      ansible.builtin.command: "ip route add local default dev lo table 100"
+      register: router_cmd
+      failed_when: false
+
+    - name: Return rules
+      ansible.builtin.command: "iptables -t mangle -A XRAY -d {{ item }} -j RETURN"
+      loop:
+        - 127.0.0.0/8
+        - "{{ lan_index }}"
+        - "{{ network_index }}"
+      
+    - name: Add mark
+      ansible.builtin.command: iptables -t mangle -A XRAY -p {{ item }} -j MARK --set-mark 1
+      loop:
+        - tcp    
+        - udp 
+
+
+    - name: Preurouting setting
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - 'iptables -t mangle -A PREROUTING -i "{{ lan_interface }}" -j XRAY'
+        - 'iptables -t mangle -A PREROUTING -i "{{ lan_interface }}" -p tcp -m mark --mark 1 -j TPROXY --on-port 12345 --on-ip 127.0.0.1'
+        - 'iptables -t mangle -A PREROUTING -i "{{ lan_interface }}" -p udp -m mark --mark 1 -j TPROXY --on-port 12345 --on-ip 127.0.0.1'
+ 
+
+    - name: Save IPTables rules in folder in path /etc/iptables/gateway_rules
+      ansible.builtin.shell: |
+        iptables-save > /etc/iptables/gateway_rules
+      changed_when: false
+
+  handlers:
+    - name: Apply netplan
+      ansible.builtin.command: netplan apply
+
+    - name: Restart dnsmasq
+      ansible.builtin.service:
+        name: dnsmasq
+        state: restarted
+        enabled: true
+
+    - name: Restart xray
+      ansible.builtin.service:
+        name: xray
+        state: restarted
+        enabled: true
+
+
+
+
+
+      
+    

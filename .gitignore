@@ -1,0 +1,4 @@
+inventory.ini
+*.zip
+*.log
+.ansible/
