@@ -39,20 +39,44 @@
           "quic"
         ]
       }
+    },
+
+    {
+      "tag": "dns-in",
+      "listen": "127.0.0.1",
+      "port": 5353,
+      "protocol": "dokodemo-door",
+      "settings": {
+	    "address": "127.0.0.1",
+	    "port": 53,
+	    "network": "tcp,udp"
+      }
     }
   ],
   "outbounds": [
+
+    {
+      "tag": "dns-out",
+      "protocol": "dns",
+      "settings": {
+	  "rewriteAddress": "1.1.1.1",
+	  "rewritePort": 53,
+	  "nonIPQuery": "skip"
+      }
+    },
+
+
     {
       "tag": "proxy",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
-            "address": "",            //enter server address
+            "address": "",  //enter VPS IP
             "port": 443,
             "users": [
               {
-                "id": "",           //enter id (use xray uuid on your server)
+                "id": "",   //enter uuid
                 "flow": "xtls-rprx-vision",
                 "encryption": "none"
               }
@@ -66,7 +90,7 @@
         "realitySettings": {
           "fingerprint": "chrome",
           "serverName": "speed.cloudflare.com",
-          "publicKey": "",            // enter pub key (use xray x25519 on your server)
+          "publicKey": "",  //enter pub key
           "shortId": "0123456789abcdef"
         },
         "sockopt": {
@@ -74,5 +98,20 @@
         }
       }
     }
-  ]
+  ],
+
+  "routing": {
+    "rules": [
+      {
+	    "type": "field",
+	    "inboundTag": ["dns-in"],
+	    "outboundTag": "dns-out"
+      },
+      {
+	    "types": "field",
+  	    "inboundTag": ["tproxy-in", "socks-in"],
+	    "outboundTag": "proxy"
+      }
+    ]
+  }
 }
