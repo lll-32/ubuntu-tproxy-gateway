@@ -104,6 +104,9 @@
         - 127.0.0.0/8
         - "{{ lan_index }}"
         - "{{ network_index }}"
+
+    - name: Return on port 67
+      ansible.builtin.command: "iptables -t mangle -I XRAY 1 -p udp --dport 67 -j RETURN"
       
     - name: Add mark
       ansible.builtin.command: iptables -t mangle -A XRAY -p {{ item }} -j MARK --set-mark 1
