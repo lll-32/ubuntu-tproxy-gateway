@@ -6,6 +6,13 @@
       "error": "/var/log/xray/error.log"
   },
 
+  "dns": {
+    "servers": [
+      "1.1.1.1",
+      "8.8.8.8"
+    ]
+  },
+
   "inbounds": [
     {
       "tag": "socks-in",
@@ -25,7 +32,7 @@
       "settings": {
         "network": "tcp,udp",
         "followRedirect": true
-      },
+      },	
       "streamSettings": {
         "sockopt": {
           "tproxy": "tproxy"
@@ -47,11 +54,11 @@
       "port": 5353,
       "protocol": "dokodemo-door",
       "settings": {
-	    "address": "127.0.0.1",
-	    "port": 53,
-	    "network": "tcp,udp"
-      }
-    }
+	  "address": "1.1.1.1",
+	  "port": 53,
+	  "network": "tcp,udp"
+       }
+     }
   ],
   "outbounds": [
 
@@ -59,9 +66,13 @@
       "tag": "dns-out",
       "protocol": "dns",
       "settings": {
-	  "rewriteAddress": "1.1.1.1",
-	  "rewritePort": 53,
-	  "nonIPQuery": "skip"
+	    "rewriteAddress": "1.1.1.1",
+	    "rewritePort": 53,
+	    "nonIPQuery": "skip"
+      },
+
+      "proxySetting": {
+	    "tag": "proxy"
       }
     },
 
@@ -72,7 +83,7 @@
       "settings": {
         "vnext": [
           {
-            "address": "",  //enter VPS IP
+            "address": "",    //enter vps ip
             "port": 443,
             "users": [
               {
@@ -90,7 +101,7 @@
         "realitySettings": {
           "fingerprint": "chrome",
           "serverName": "speed.cloudflare.com",
-          "publicKey": "",  //enter pub key
+          "publicKey": "",    //enter pub key
           "shortId": "0123456789abcdef"
         },
         "sockopt": {
@@ -108,9 +119,15 @@
 	    "outboundTag": "dns-out"
       },
       {
-	    "types": "field",
+	    "type": "field",
   	    "inboundTag": ["tproxy-in", "socks-in"],
 	    "outboundTag": "proxy"
+      },
+      {
+        "type": "field",
+        "outboundTag": "proxy",
+        "network": "udp",
+	    "port": 53
       }
     ]
   }
